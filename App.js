@@ -1,18 +1,17 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { useEffect, useState, useRef } from 'react';
-import { Camera, useCameraDevice, useFrameProcessor,runOnJS } from 'react-native-vision-camera';
-import { Face, useFaceDetector } from 'react-native-vision-camera-face-detector';
+import { useEffect, useState } from 'react';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
+import { useFaceDetector } from 'react-native-vision-camera-face-detector';
 
 const App = () => {
-  const frameWidth = 200;
-  const frameHeight = 250;
+  const frameWidth = 300;
+  const frameHeight = 400;
   
   const device = useCameraDevice('front');
   const { detectFaces } = useFaceDetector();
-  const [instruction, setInstruction] = useState('Fit your face in the frame.');
+  const [instruction, setInstruction] = useState('Fit your face in the frame');
   const [hasPermission, setHasPermission] = useState(false);
 
-  // Add this useEffect for camera permission
   useEffect(() => {
     (async () => {
       const cameraPermission = await Camera.requestCameraPermission();
@@ -20,87 +19,95 @@ const App = () => {
     })();
   }, []);
 
-  const checkIfFaceFits = (faceBounds, frameWidth = 200, frameHeight = 250) => {
-    'worklet';
-    // Get the center coordinates of the frame
-    const frameCenterX = frameWidth / 2;
-    const frameCenterY = frameHeight / 2;
-    
-    // Calculate the face center point
-    const faceCenterX = faceBounds.x + faceBounds.width / 2;
-    const faceCenterY = faceBounds.y + faceBounds.height / 2;
-    
-    // Calculate distance between centers
-    const centerOffsetX = Math.abs(faceCenterX - frameCenterX);
-    const centerOffsetY = Math.abs(faceCenterY - frameCenterY);
-    
-    // Calculate percentage of frame filled by face
-    const faceArea = faceBounds.width * faceBounds.height;
-    const frameArea = frameWidth * frameHeight;
-    const fillPercentage = faceArea / frameArea;
-    
-    // Check if face is centered enough
-    const isCentered = centerOffsetX < (frameWidth * 0.15) && centerOffsetY < (frameHeight * 0.15);
-    
-    // Check if face is the right size (not too big or too small)
-    const isRightSize = fillPercentage > 0.3 && fillPercentage < 0.8;
-    
-    // Check if face is mostly contained within the frame
-    const faceLeft = faceBounds.x;
-    const faceRight = faceBounds.x + faceBounds.width;
-    const faceTop = faceBounds.y;
-    const faceBottom = faceBounds.y + faceBounds.height;
-    
-    const isContained = 
-      faceLeft > 0 - (faceBounds.width * 0.1) &&
-      faceRight < frameWidth + (faceBounds.width * 0.1) &&
-      faceTop > 0 - (faceBounds.height * 0.1) &&
-      faceBottom < frameHeight + (faceBounds.height * 0.1);
-    
-    // Face fits if it's centered, the right size, and mostly contained
-    return isCentered && isRightSize && isContained;
+  const frameProcessor = (frame) => {
+    try {
+      const faces = detectFaces(frame);
+      console.log(faces,'####')
+      
+      // Check if faces array exists and has at least one face
+      if (!faces || faces.length === 0) {
+        setInstruction('No face detected');
+        return;
+      }
+
+      const singleFace = faces[0];
+      
+      // Check if face object and bounds exist
+      if (!singleFace || !singleFace.bounds) {
+        setInstruction('Face detection error');
+        return;
+      }
+
+      const faceBounds = singleFace.bounds;
+      
+      // Check if all required properties exist
+      if (typeof faceBounds.x === 'undefined' || 
+          typeof faceBounds.y === 'undefined' ||
+          typeof faceBounds.width === 'undefined' ||
+          typeof faceBounds.height === 'undefined') {
+        setInstruction('Adjusting detection...');
+        return;
+      }
+
+      // Get the center coordinates of the frame
+      const frameCenterX = frameWidth / 2;
+      const frameCenterY = frameHeight / 2;
+      
+      // Calculate the face center point
+      const faceCenterX = faceBounds.x + faceBounds.width / 2;
+      const faceCenterY = faceBounds.y + faceBounds.height / 2;
+      
+      // Calculate distance between centers
+      const centerOffsetX = Math.abs(faceCenterX - frameCenterX);
+      const centerOffsetY = Math.abs(faceCenterY - frameCenterY);
+      
+      // Calculate percentage of frame filled by face
+      const faceArea = faceBounds.width * faceBounds.height;
+      const frameArea = frameWidth * frameHeight;
+      const fillPercentage = faceArea / frameArea;
+      
+      // Check if face is centered enough (20% margin)
+      const isCentered = centerOffsetX < (frameWidth * 0.2) && centerOffsetY < (frameHeight * 0.2);
+      
+      // Check if face is the right size
+      const isRightSize = fillPercentage > 0.25 && fillPercentage < 0.7;
+      
+      if (isCentered && isRightSize) {
+        setInstruction('Perfect! Hold still');
+      } else if (!isCentered) {
+        setInstruction('Move to center');
+      } else if (fillPercentage <= 0.25) {
+        setInstruction('Move closer');
+      } else {
+        setInstruction('Move back');
+      }
+    } catch (error) {
+      console.error('Face detection error:', error);
+      setInstruction('Detection error');
+    }
   };
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    // Removed the runAsync wrapper
-    const faces = detectFaces(frame);
-    const singleFace = faces.length > 0 ? faces[0] : null;
-    
-    if (singleFace) {
-      // Implement face fitting logic here based on singleFace.bounds and overlay dimensions
-      const isFaceFitted = checkIfFaceFits(singleFace.bounds);
-      
-      if (isFaceFitted) {
-        runOnJS(setInstruction)('Good fit!');
-      } else {
-        runOnJS(setInstruction)('Adjust your position.');
-      }
-    } else {
-      runOnJS(setInstruction)('No face detected.');
-    }
-  }, [detectFaces]);
-
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: 'black' }}>
       {!hasPermission ? (
         <View style={styles.permissionContainer}>
-          <Text>Camera permission is required.</Text>
+          <Text style={styles.permissionText}>Camera permission is required</Text>
         </View>
       ) : device != null ? (
-        <Camera
-          style={StyleSheet.absoluteFill}
-          device={device}
-          isActive={true}
-          frameProcessor={frameProcessor}
-        />
-      ) : (
-        <Text>No camera device found.</Text>
-      )}
-      
-      {hasPermission && device && (
         <>
-          <View style={[styles.overlay, { width: frameWidth, height: frameHeight }]}>
+          <Camera
+            style={StyleSheet.absoluteFill}
+            device={device}
+            isActive={true}
+            frameProcessor={frameProcessor}
+          />
+          
+          <View style={[styles.overlay, { 
+            width: frameWidth, 
+            height: frameHeight,
+            marginLeft: -frameWidth/2,
+            marginTop: -frameHeight/2
+          }]}>
             <View style={styles.frameBorder} />
           </View>
           
@@ -108,6 +115,10 @@ const App = () => {
             <Text style={styles.instructionText}>{instruction}</Text>
           </View>
         </>
+      ) : (
+        <View style={styles.permissionContainer}>
+          <Text style={styles.permissionText}>No camera device found</Text>
+        </View>
       )}
     </View>
   );
@@ -116,32 +127,31 @@ const App = () => {
 const styles = StyleSheet.create({
   instructionContainer: {
     position: 'absolute',
-    top: 20,
+    bottom: 50,
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   instructionText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 15,
+    borderRadius: 10,
+    textAlign: 'center',
   },
   overlay: {
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginLeft: -100, // frameWidth/2
-    marginTop: -125, // frameHeight/2
     alignItems: 'center',
     justifyContent: 'center',
   },
   frameBorder: {
     width: '100%',
     height: '100%',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: 'white',
     borderRadius: 10,
   },
@@ -149,6 +159,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'black',
+  },
+  permissionText: {
+    color: 'white',
+    fontSize: 18,
   },
 });
 
