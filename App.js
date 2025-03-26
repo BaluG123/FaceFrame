@@ -8,6 +8,7 @@ const App = () => {
   const frameHeight = 400;
   
   const device = useCameraDevice('front');
+  console.log(device,'##')
   const { detectFaces } = useFaceDetector();
   const [instruction, setInstruction] = useState('Fit your face in the frame');
   const [hasPermission, setHasPermission] = useState(false);
