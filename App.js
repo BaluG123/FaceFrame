@@ -21,6 +21,7 @@ const App = () => {
 
   const frameProcessor = (frame) => {
     try {
+      console.log(frame,'@frame')
       const faces = detectFaces(frame);
       console.log(faces,'####')
       
@@ -31,6 +32,8 @@ const App = () => {
       }
 
       const singleFace = faces[0];
+
+      console.log(singleFace,'###')
       
       // Check if face object and bounds exist
       if (!singleFace || !singleFace.bounds) {
