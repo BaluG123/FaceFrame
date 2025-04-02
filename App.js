@@ -5,6 +5,14 @@ import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import { PermissionsAndroid } from "react-native";
 import ImagePicker from 'react-native-image-crop-picker';
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const frameWidth = 350;
+const frameHeight = 350;
+const frameLeft = (screenWidth - frameWidth) / 2;
+const frameTop = (screenHeight - frameHeight) / 2;
+const frameRight = frameLeft + frameWidth;
+const frameBottom = frameTop + frameHeight;
+
 const App = () => {
   const frameSize = 350; // dp size of the frame
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -283,6 +291,26 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'white',
     borderRadius: 10,
+    backgroundColor: 'transparent',
+  },
+  instructionContainer: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  instructionText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    textAlign: 'center',
+    maxWidth: '80%',
   },
   instructionContainer: {
     position: 'absolute',
